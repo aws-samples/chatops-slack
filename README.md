@@ -76,11 +76,26 @@ This workflow combines manual code upload with automated quality checks, provide
 ## AWS CloudFormation stack overview:
 1. The pre-requisite.yml is to be executed first and expects below parameters:
 
-| Column 1 Key | Column 2 Description |
+| Key | Description |
 | --------------- | --------------- |
 | Stack Name | As per choice |
 | S3LambaBucket | As per choice, however it has to be globally unique |
 | SonarToken | This is the sonar user token that is mentioned in the pre-requisite section |
+
+2. The other stack app-security.yml gets executed next and expects below parameters:
+
+| Key | Description |
+| --------------- | --------------- |
+| CKMSKeyArn | Enter the key arn noted from the previous steps |
+| CKMSKeyId | Enter the key id noted from the previous steps |
+| EnvironmentType | Environment name can be selected from the above list |
+| S3LambdaBucket | Enter the name of the bucket that contains the approval.zip and notification.zip. |
+| SESEmail | Name of the registered email identity in Amazon SES(performed as a part of the pre-requisite). This will be the source email address. |
+| SharedInboxMail | Destination email address where the scan notifications are to be sent |
+| SlackChannelId | Channel ID of slack channel. Right Click on channel name→ Channel Details on the slack APP find the channel ID at the bottom |
+| SlackWorkspaceId | Enter the slack workspace ID created in the pre-requisite section.  You can get it from the AWS console→ AWS Chatbot→ Configured Clients→ Slack→ WorkspaceID |
+| SonarFileDirectory | Enter the directory which contains your sonar.project.<env>.properties file. |
+| SonarFileName | Enter the name of the sonar.project.<env>properties file |
 
 ## Security
 
