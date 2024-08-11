@@ -1,0 +1,105 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Creates pre-requisite bucket to store lambda code"
+
+Parameters:
+  SonarToken:
+    Type: String
+    NoEcho: true
+    Description: "Enter the Sonar global token for the user"
+    AllowedPattern : ".+"
+  
+  S3LambdaBucket:
+    Type: String
+    Description: "Enter the name of the S3 bucket where you will upload the lambda code"
+    Default: "chatops-lambda-bucket-t"
+    AllowedPattern : ".+"
+
+  # CmkId:
+  #   Type: AWS::SSM::Parameter::Value<String>
+
+Resources:
+  CmkId:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: KMS key for secret manager encryption
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Id: key-policy
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Join [':', ['arn:aws:iam:', !Ref 'AWS::AccountId', 'root']]
+            Action: 'kms:*'
+            Resource: !Sub "arn:aws:*:${AWS::Region}:${AWS::AccountId}:*:*"
+          - Sid: Allow CloudFormation to update the key policy
+            Effect: Allow
+            Principal:
+              AWS: !Join [':', ['arn:aws:iam:', !Ref 'AWS::AccountId', 'root']]
+            Action:
+              - 'kms:*'
+            Resource: '*'
+
+  S3lambdaBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3Lambda
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Join [':', ['arn:aws:iam:', !Ref 'AWS::AccountId', 'root']]
+            Action:
+              - 's3:Get*'
+              - 's3:Put*'
+              - 's3:List*'
+              - 's3:Delete*'
+            Resource:
+              - !Join ['', ['arn:aws:s3:::', !Ref S3Lambda, '/*']]
+  SonarSecret:
+    Type: "AWS::SecretsManager::Secret"
+    Properties:
+      Name: "Sonar-Secrets"
+      Description: "Global Sonar Token"
+      KmsKeyId: !Ref CmkId
+      SecretString: !Sub |
+        {
+          "token": "${SonarToken}"
+        }
+  
+  S3Lambda:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Sub "${S3LambdaBucket}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+
+Outputs:
+  SonarSecret:
+    Description: "The sonar secret contains the token for the user created above"
+    Value: !Sub ${SonarSecret}
+
+  CKMSKeyId:
+    Description: The ID of the KMS key
+    Value: !Ref CmkId
+    Export:
+      Name: KMSKeyId
+
+  CKMSKeyArn:
+    Description: The ARN of the KMS key
+    Value: !GetAtt CmkId.Arn
+    Export:
+      Name: KMSKeyArn

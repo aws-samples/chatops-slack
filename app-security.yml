@@ -1,0 +1,643 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Application scanning"
+Parameters:
+  # Make the parametes neutral
+  EnvironmentType:
+    Type: String
+    Default: apac-apg-test-demo
+    AllowedValues:
+      - apac-apg-test-demo
+      - apac-apg-test-dev1
+      - apac-apg-test-dev2
+      - apac-apg-test-uat
+      - apac-apg-test-preprod
+      - apac-apg-test-prod 
+    Description: Select the client environment for deployment of the application scan pipeline.
+  
+  # SubnetIds:
+  #   Type: List<AWS::EC2::Subnet::Id>
+  #   Description: The IDs of the existing subnets within the VPC
+  
+  # LambdaSecurityGroup:
+  #   Type: AWS::EC2::SecurityGroup::Id
+  #   Description: The ID of the existing security group for the Lambda function
+
+  SonarFileName:
+    Type: String
+    AllowedPattern : ".+"
+    Default: sonar.project.dev1.properties
+    Description: Enter the exact name of the sonar file present in the zip file for the particular environment.
+
+  SonarFileDirectory:
+    Type: String
+    Description: "Enter the directory location where the above sonar.project.{env}.properties is located. It should be at the root level of the source code location."
+    AllowedPattern : ".+" 
+
+  SESEmail:
+    Type: String
+    Description: "Enter the email ID registered in SES"
+    AllowedPattern : ".+" 
+
+  SlackWorkspaceId:
+    Type: String
+    Description: "Enter the ID of the slack workspace which you configured from the AWS Console"
+    AllowedPattern : ".+"
+
+  SlackChannelId:
+    Type: String
+    Description: "Enter the ID of the slack channel where you want the notifications to be sent."
+    AllowedPattern : ".+"
+
+  S3LambdaBucket:
+    Type: String
+    Description: "Enter the name of s3 bucket that you created using the pre-requisite.yml"
+    Default: "chatops-lambda-bucket-t"
+    AllowedPattern : ".+"
+  
+  SharedInboxMail:
+    Type: String
+    Description: "Enter the email ID of the inbox to receive the approval notifications."
+    AllowedPattern : ".+"
+
+  CKMSKeyId:
+    Type: String
+    Description: "Enter the KMS Key Id"
+    AllowedPattern : ".+"
+  
+  CKMSKeyArn:
+    Type: String
+    Description: "Enter the KMS Key ARN"
+    AllowedPattern : ".+"
+  
+  SourceCodeZip:
+    Type: String
+    Description: "Enter the exact name of the zip file that contains the sonar project properties file and the source code. E.g.: dp.zip"
+    AllowedPattern : ".+"
+
+Resources:
+  S3ScanArifactsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3ScanArifactsBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Join [':', ['arn:aws:iam:', !Ref 'AWS::AccountId', 'root']]
+            Action:
+              - 's3:Get*'
+              - 's3:Put*'
+              - 's3:List*'
+              - 's3:Delete*'
+            Resource:
+              - !Join ['', ['arn:aws:s3:::', !Ref S3ScanArifactsBucket, '/*']]
+
+  S3ABPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3AB
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Join [':', ['arn:aws:iam:', !Ref 'AWS::AccountId', 'root']]
+            Action:
+              - 's3:Get*'
+              - 's3:Put*'
+              - 's3:List*'
+              - 's3:Delete*'
+            Resource:
+              - !Join ['', ['arn:aws:s3:::', !Ref S3AB, '/*']]
+
+# Code to create S3 bucket that stores the code build logs of the code build execution.
+  S3ScanArifactsBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Sub "${EnvironmentType}-sonar-scan-evidences"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+# Code to create S3 bucket. This bucket will be used by developers to upload the source code. 
+  S3AB:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Sub "${EnvironmentType}-application-scan-bucket"
+      NotificationConfiguration:
+        EventBridgeConfiguration:
+          EventBridgeEnabled: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+# Code to create a role for the step function that orchestrates the Notification flow.
+  IAMStepFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${EnvironmentType}-CodeQualityAnalysis-StepFunction-Role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: ["events.amazonaws.com","states.amazonaws.com"]
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: !Sub "${EnvironmentType}-CodeQualityAnalysis-StepFunction-Policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "codebuild:StartBuild"
+                  -  "codebuild:StopBuild"
+                  -  "codebuild:BatchGetBuilds"
+                Resource: !Sub "arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${EnvironmentType}-sonar-scan"
+              - Effect: "Allow"
+                Action:
+                  - "events:PutRule"
+                  - "events:PutTargets"
+                  - "events:DescribeRule"
+                Resource: 
+                  - !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/${EnvironmentType}-S3ToEventBridge"
+                  - !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/StepFunctionsGetEventForCodeBuildStartBuildRule"
+              
+              - Effect: "Allow"
+                Action:
+                  - "states:StartExecution"
+                Resource: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${EnvironmentType}-CodeQualityAnalysis"
+
+              - Effect: "Allow"
+                Action:
+                  - "lambda:InvokeFunction"
+                Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${EnvironmentType}-CheckBuildStatusLambdaFunction"
+
+# Code to create code build role for the code build project to execute sonar scan
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${EnvironmentType}-sonar-scan-CodeBuild-Role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "codebuild.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: !Sub "${EnvironmentType}-sonar-scan-CodeBuild-Policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${EnvironmentType}-sonar-scan"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${EnvironmentType}-sonar-scan:*"  
+
+              - Effect: "Allow"
+                Action:
+                  - "s3:PutObject"
+                  - "s3:GetObject"
+                  - "s3:GetObjectVersion"
+                  - "s3:GetBucketAcl"
+                  - "s3:GetBucketLocation"
+                  - "s3:ListBucket"
+                  - "s3:PutObject"
+                  - "s3:PutObjectAcl"
+                Resource:
+                  - !Sub "arn:aws:s3:::${EnvironmentType}-sonar-scan-evidences"
+                  - !Sub "arn:aws:s3:::${EnvironmentType}-sonar-scan-evidences/*"
+                  - !Sub "arn:aws:s3:::${S3AB}"
+                  - !Sub "arn:aws:s3:::${S3AB}/${SourceCodeZip}"
+                  - !Sub "arn:aws:s3:::${S3AB}/${SourceCodeZip}/*"
+              - Effect: Allow
+                Action:
+                  - "codebuild:CreateReportGroup"
+                  - "codebuild:CreateReport"
+                  - "codebuild:UpdateReport"
+                  - "codebuild:BatchPutTestCases"
+                  - "codebuild:BatchPutCodeCoverages"
+                Resource:
+                  - !Sub "arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/*"
+              - Effect: Allow
+                Action:
+                  - "secretsmanager:GetSecretValue"
+                Resource:
+                  - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:Sonar-*"
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                Resource:
+                  - !Ref CKMSKeyArn
+
+# Code to create lambda function role for the notification lambda which sends out custom notification to SNS topic
+  LambdaFunctionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub "${EnvironmentType}-CheckBuildStatusLambdaFunction-Role"
+      ManagedPolicyArns: 
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action: "sts:AssumeRole"     
+      Policies:
+        - PolicyName: !Sub "${EnvironmentType}-CheckBuildStatusLambdaFunction-Policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: 
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${EnvironmentType}-CheckBuildStatusLambdaFunction:*"
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogStream"
+                  - "logs:GetLogEvents"
+                Resource: 
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${EnvironmentType}-sonar-scan:*"
+              - Effect: "Allow"
+                Action:
+                  - "s3:GetObject"
+                Resource: 
+                  - "arn:aws:s3:::*-*-lambda-bucket/*"
+                  - "arn:aws:s3:::*-*-lambda-bucket/*"
+              - Effect: "Allow"
+                Action:
+                  - "sns:Publish"
+                Resource: 
+                  - "arn:aws:s3:::*-*-lambda-bucket/*"
+                  - "arn:aws:s3:::*-*-lambda-bucket/*"
+                  - !Sub  "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${EnvironmentType}-LambdaToAWSSlackChatbot"
+              - Effect: Allow
+                Action:
+                  - "kms:Decrypt"
+                  - "kms:DescribeKey"
+                  - "kms:GenerateDataKey"
+                Resource:
+                  - !Ref CKMSKeyArn
+
+# Code to create role for the approval lambda function, that is triggered by APPROVE button from AWS Chatbot
+  ApprovalLambdaFunctionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub "${EnvironmentType}-ApprovalEmailLambdaFunction-Role"
+      ManagedPolicyArns: 
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action: "sts:AssumeRole"     
+      Policies:
+        - PolicyName: !Sub "${EnvironmentType}-ApprovalEmailLambdaFunction-Policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: 
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${EnvironmentType}-ApprovalEmailLambdaFunction:*"
+              - Effect: "Allow"
+                Action:
+                  - "ses:SendEmail"
+                Resource:
+                  - !Sub  "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${SESEmail}"
+              - Effect: Allow
+                Action:
+                  - "kms:Decrypt"
+                  - "kms:DescribeKey"
+                  - "kms:GenerateDataKey"
+                Resource:
+                  - !Ref CKMSKeyArn
+
+# Code to create role for AWS Chabot to perform actions      
+  AWSChatbotRole:
+        Type: "AWS::IAM::Role"
+        Properties:
+          RoleName: !Sub "${EnvironmentType}-AwsChatbotSlack-Role"
+          AssumeRolePolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Principal:
+                  Service: "chatbot.amazonaws.com"
+                Action: "sts:AssumeRole"
+          Policies:
+            - PolicyName: !Sub "${EnvironmentType}-AwsChatbotSlack-Notification-Policy"
+              PolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                  - Effect: "Allow"
+                    Action:
+                      - "cloudwatch:Describe*"
+                      - "cloudwatch:Get*"
+                      - "cloudwatch:List*"
+                    Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*"
+            - PolicyName: !Sub "${EnvironmentType}-AwsChatbotSlack-LambdaInvoke-Policy"
+              PolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                  - Effect: "Allow"
+                    Action:
+                      - "lambda:Get*"
+                      - "lambda:List*"
+                    Resource: "*"
+                  - Effect: "Allow"
+                    Action:
+                      - "lambda:invokeAsync"
+                      - "lambda:invokeFunction"
+                    Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${EnvironmentType}-ApprovalEmailLambdaFunction"
+                  - Effect: Allow
+                    Action:
+                      - "kms:Decrypt"
+                      - "kms:DescribeKey"
+                      - "kms:GenerateDataKey"
+                    Resource:
+                      - !Ref CKMSKeyArn
+
+# Code to create codebuild project to execute sonar scan. It downloads the sonar scanner version 5.0.1
+  CodeBuildProject:
+        Type: "AWS::CodeBuild::Project"
+        Properties:
+            Name: !Sub ${EnvironmentType}-sonar-scan
+            Description: "Code build project to run sonar analysis"
+            ServiceRole: !GetAtt CodeBuildRole.Arn
+            Source: 
+                BuildSpec: !Sub |
+                    version: 0.2
+                    phases:
+                      pre_build:
+                        commands:
+                          - SONAR_SECRETS_JSON=$(aws secretsmanager get-secret-value --secret-id "Sonar-Secrets" --query SecretString --output text)
+                          - SONAR_TOKEN=$(echo $SONAR_SECRETS_JSON | jq -r '.token')
+                      install:
+                        commands:
+                          - yum update -y
+                          - yum install -y unzip
+                          - curl -o sonar-scanner-cli.zip -L https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
+                          - unzip sonar-scanner-cli.zip
+                          - mv sonar-scanner-5.0.1.3006-linux /usr/local/sonar-scanner
+                          - export PATH=$PATH:/usr/local/sonar-scanner/bin
+                      build:
+                        commands:
+                          - cd ${SonarFileDirectory}
+                          - sonar-scanner -Dproject.settings=${SonarFileName}
+                Location: !Sub "${S3AB}/${SourceCodeZip}"
+                Type: "S3"
+            Artifacts:
+                Type: "NO_ARTIFACTS"
+            Cache: 
+                Type: "NO_CACHE"
+            Environment: 
+                ComputeType: "BUILD_GENERAL1_XLARGE"
+                Image: "aws/codebuild/amazonlinux2-x86_64-standard:5.0"
+                Type: "LINUX_CONTAINER"
+            EncryptionKey: !Sub "arn:aws:kms:${AWS::Region}:${AWS::AccountId}:alias/aws/s3"
+            LogsConfig: 
+                CloudWatchLogs: 
+                    Status: "ENABLED"
+                S3Logs: 
+                    Status: "ENABLED"
+                    Location: !Sub ${S3ScanArifactsBucket}
+            Visibility: "PRIVATE"
+
+# Code to create Step function that orchestrates the Notification flow
+  StepFunctionsStateMachine:
+        Type: "AWS::StepFunctions::StateMachine"
+        Properties:
+            StateMachineName: !Sub ${EnvironmentType}-CodeQualityAnalysis
+            DefinitionString: !Sub |
+                {
+                  "Comment": "Code quality tools integration",
+                  "StartAt": "Sonarcloud Scanning",
+                  "States": {
+                    "Sonarcloud Scanning": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::codebuild:startBuild.sync",
+                      "Catch": [
+                        {
+                          "ErrorEquals": [
+                            "States.TaskFailed"
+                          ],
+                          "Next": "CheckBuildStatus"
+                        }
+                       ],          
+                      "Parameters": {
+                        "ProjectName": "${CodeBuildProject}"
+                      },
+                      "Next": "EndStepFunction"
+                    },
+                    "CheckBuildStatus": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${EnvironmentType}-CheckBuildStatusLambdaFunction",
+                      "End": true
+                    },
+                    "EndStepFunction": {
+                      "Type": "Pass",
+                      "End": true
+                    }
+                  }
+                }
+            RoleArn: !GetAtt IAMStepFunctionRole.Arn
+            StateMachineType: "STANDARD"
+
+# Code to create EventsRule. This resource triggers the above step function on an S3 Object create event
+  EventsRule:
+        Type: "AWS::Events::Rule"
+        Properties:
+            Name: !Sub ${EnvironmentType}-S3ToEventBridge
+            Description: "On an S3 object create event, this event bridge rule triggers a step function"
+            EventBusName: default
+            EventPattern: !Sub "{\"source\":[\"aws.s3\"],\"detail-type\":[\"Object Created\"],\"detail\":{\"bucket\":{\"name\":[\"${S3AB}\"]}}}"
+            State: "ENABLED"
+            Targets:
+              - Id: TriggerStepFunction
+                Arn: !GetAtt StepFunctionsStateMachine.Arn
+                RoleArn: !GetAtt IAMStepFunctionRole.Arn
+
+# Lambda function to create a custom notification for AWS Chatbot
+  LambdaFunction:
+        Type: "AWS::Lambda::Function"
+        Properties:
+            Description: "This function checks if the build has failed due to quality gate or some other reason and publish to SNS for AWS Chatbot"
+            FunctionName: !Sub ${EnvironmentType}-CheckBuildStatusLambdaFunction
+            Handler: "notification/custom-teams-notification.lambda_handler"
+            ReservedConcurrentExecutions: 1
+            Architectures: 
+              - "x86_64"
+            Code:
+              S3Bucket: !Sub ${S3LambdaBucket}
+              S3Key: notification.zip
+            Role: !GetAtt LambdaFunctionRole.Arn
+            Environment:
+              Variables:
+                SNS_TOPIC_ARN: !Ref SNSTopic
+            KmsKeyArn: !Sub ${CKMSKeyArn}
+            Runtime: "python3.12"
+            # VpcConfig:
+            #   SecurityGroupIds: 
+            #     - !Ref LambdaSecurityGroup
+            #   SubnetIds: !Ref SubnetIds
+
+# Code to create approval lambda function to send email to the shared inboxes
+  ApprovalLambdaFunction:
+        Type: "AWS::Lambda::Function"
+        Properties:
+            Description: "This function sends an email on clicking the APPROVE button custom action."
+            ReservedConcurrentExecutions: 1
+            FunctionName: !Sub ${EnvironmentType}-ApprovalEmailLambdaFunction
+            Handler: "approval/approval-email.lambda_handler"
+            Architectures: 
+              - "x86_64"
+            Code:
+              S3Bucket: !Sub ${S3LambdaBucket}
+              S3Key: approval.zip
+            Role: !GetAtt ApprovalLambdaFunctionRole.Arn
+            Environment:
+              Variables:
+                SHARED_INBOX_MAIL: !Sub ${SharedInboxMail}
+                APP_BUCKET: !Sub ${S3AB}
+                SES_EMAIL: !Sub ${SESEmail}
+            KmsKeyArn: !Sub ${CKMSKeyArn}
+            Runtime: "python3.12"
+            # VpcConfig:
+            #   SecurityGroupIds: 
+            #     - !Ref LambdaSecurityGroup
+            #   SubnetIds: !Ref SubnetIds
+
+# Code to create SNS topic for AWS Chatbot
+  SNSTopic:
+        Type: "AWS::SNS::Topic"
+        Properties:
+            DisplayName: "SNS Topic to receive notification from lambda and forward it to AWS Chatbot for Slack"
+            TopicName: !Sub ${EnvironmentType}-LambdaToAWSSlackChatbot
+            KmsMasterKeyId: !Ref CKMSKeyId
+            
+  SlackChatbot: 
+      Type: AWS::Chatbot::SlackChannelConfiguration
+      Properties:
+        ConfigurationName: !Sub "${EnvironmentType}"
+        GuardrailPolicies: 
+            - arn:aws:iam::aws:policy/AWSCodeBuildReadOnlyAccess
+            - arn:aws:iam::aws:policy/AWSLambda_FullAccess
+        IamRoleArn: !GetAtt AWSChatbotRole.Arn
+        SlackChannelId: !Sub "${SlackChannelId}"
+        SlackWorkspaceId: !Sub "${SlackWorkspaceId}"
+        SnsTopicArns: 
+          - !Ref SNSTopic
+
+# Code for SNS subscription
+  SNSSubscription:
+        Type: "AWS::SNS::Subscription"
+        Properties:
+            TopicArn: !Ref SNSTopic
+            Endpoint: "https://global.sns-api.chatbot.amazonaws.com"
+            Protocol: "https"
+            RawMessageDelivery: "false"
+            Region: !Ref AWS::Region
+        DependsOn: "SlackChatbot"
+
+Outputs:
+  S3ScanArifactsBucket:
+    Description: "This bucket contains the code build logs for each execution"
+    Value: !Sub ${S3ScanArifactsBucket}
+
+  S3AB:
+    Description: "Name of the bucket where the dev team needs to upload the application source code"
+    Value: !Sub ${S3AB}
+  
+  IAMStepFunctionRole:
+    Description: "This role is used to execute the step function."
+    Value: !Sub ${IAMStepFunctionRole}
+
+  CodeBuildRole:
+    Description: "This role is used to execute the code build job responsible for performing sonar scans"
+    Value: !Sub ${CodeBuildRole}
+  
+  LambdaFunctionRole:
+    Description: "This role is used to execute the lambda function responsible sending MSTeams notification"
+    Value: !Sub ${LambdaFunctionRole}
+  
+  ApprovalLambdaFunctionRole:
+    Description: "This role is used to execute the lambda function responsible for Custom actions using AWS Chatbot"
+    Value: !Sub ${ApprovalLambdaFunctionRole}
+  
+  AWSChatbotRole:
+    Description: "This role is used by the AWS Chatbot for performing actions"
+    Value: !Sub ${AWSChatbotRole}
+  
+  CodeBuildProject:
+    Description: "This project is responsible to perform sonar scanning for the uploaded package"
+    Value: !Sub ${CodeBuildProject}
+  
+  StepFunctionsStateMachine:
+    Description: "This step function gets executed when the source code is uploaded to S3AB"
+    Value: !Sub ${StepFunctionsStateMachine}
+  
+  EventsRule:
+    Description: "On an S3 object create event, this event bridge rule triggers a step function"
+    Value: !Sub ${EventsRule}
+
+  LambdaFunction:
+    Description: "This function checks if the build has failed due to quality gate or some other reason and publish to SNS for AWS Chatbot"
+    Value: !Sub ${LambdaFunction}
+  
+  ApprovalLambdaFunction:
+    Description: "This function sends an email notification when the approvers click the APPROVE as a custom action button on Slack"
+    Value: !Sub ${ApprovalLambdaFunction} 
+  
+  SNSTopic:
+    Description: "SNS Topic to receive notification from lambda and forward it to AWS Chatbot for Slack"
+    Value: !Sub ${SNSTopic}
+
+  SlackChatbot:
+    Description: "SlackChatbot Chatbot that contains channels for each indiviual environment"
+    Value: !Sub ${SlackChatbot}
+
+  SharedInboxMail:
+    Description: "This email id will get the approval email notifications"
+    Value: !Sub ${SharedInboxMail}
