@@ -13,12 +13,11 @@ These issues often lead to increased security risks, delayed releases, and reduc
 To address these critical challenges, we present a comprehensive solution that leverages the power of AWS Chatbot to streamline the management of Static Application Security Testing (SAST) scan failures reported via SonarQube. This innovative approach integrates custom actions and notifications into a conversational interface, enabling efficient collaboration and decision-making processes within development teams.
 
 Key features of the solution include:
-
-    1. Customized Notifications: Real-time alerts and notifications are delivered directly to team chat channels, ensuring prompt awareness and action on SAST scan vulnerabilities or failures.
-    2. Conversational Approvals: Stakeholders can initiate and complete approval workflows for SAST scan results seamlessly within the chat interface, accelerating decision-making processes.
-    3. Custom Actions: The solution allows teams to define and execute custom actions based on SAST scan outcomes, such as automatically triggering emails for quality gate failures, enhancing responsiveness to security issues.
-    4. Centralized Collaboration: All SAST scan-related discussions, decisions, and actions are kept within a unified chat environment, fostering improved collaboration and knowledge-sharing among team members.
-    5. Infrastructure as Code (IaC): The entire solution is wrapped with AWS CloudFormation templates, enabling faster and more reliable infrastructure provisioning while reducing manual setup errors.
+1. Customized Notifications: Real-time alerts and notifications are delivered directly to team chat channels, ensuring prompt awareness and action on SAST scan vulnerabilities or failures.
+2. Conversational Approvals: Stakeholders can initiate and complete approval workflows for SAST scan results seamlessly within the chat interface, accelerating decision-making processes.
+3. Custom Actions: The solution allows teams to define and execute custom actions based on SAST scan outcomes, such as automatically triggering emails for quality gate failures, enhancing responsiveness to security issues.
+4. Centralized Collaboration: All SAST scan-related discussions, decisions, and actions are kept within a unified chat environment, fostering improved collaboration and knowledge-sharing among team members.
+5. Infrastructure as Code (IaC): The entire solution is wrapped with AWS CloudFormation templates, enabling faster and more reliable infrastructure provisioning while reducing manual setup errors.
 
 ## Architecture
 ![Architecture Diagram](./Architecture.png)
