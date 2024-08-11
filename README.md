@@ -2,11 +2,11 @@
 
 ## Summary
 In today's fast-paced software development environment, managing Static Application Security Testing (SAST) scan results efficiently is crucial for maintaining code quality and security. However, many organizations face significant challenges:
-    - Delayed awareness of critical vulnerabilities due to inefficient notification systems.
-    - Slow decision-making processes caused by disconnected approval workflows.
-    - Lack of immediate, actionable responses to SAST scan failures.
-    - Fragmented communication and collaboration around security findings.
-    - Time-consuming and error-prone manual infrastructure setup for security tooling.
+- Delayed awareness of critical vulnerabilities due to inefficient notification systems.
+- Slow decision-making processes caused by disconnected approval workflows.
+- Lack of immediate, actionable responses to SAST scan failures.
+- Fragmented communication and collaboration around security findings.
+- Time-consuming and error-prone manual infrastructure setup for security tooling.
 
 These issues often lead to increased security risks, delayed releases, and reduced team productivity. There is a pressing need for a solution that can streamline SAST result management, enhance team collaboration, and automate infrastructure provisioning to address these challenges effectively.
 
@@ -68,19 +68,19 @@ This workflow combines manual code upload with automated quality checks, provide
 
 
 ## Pre-requisites
-AWS Chatbot to be added to slack the required slack workspace as a plugin. Refer [Add apps to slack workspace](https://slack.com/intl/en-in/help/articles/202035138-Add-apps-to-your-Slack-workspace) for further details. Keep a note of the slack Workspace ID shown on the AWS Console after successful registration.
+1. AWS Chatbot to be added to slack the required slack workspace as a plugin. Refer [Add apps to slack workspace](https://slack.com/intl/en-in/help/articles/202035138-Add-apps-to-your-Slack-workspace) for further details. Keep a note of the slack Workspace ID shown on the AWS Console after successful registration.
 
-An IAM role with permissions to create and manage the following AWS resources: AWS S3 buckets, AWS Step Functions, AWS CodeBuild, AWS Secrets Manager, AWS Lambda functions, Amazon SNS, Amazon SES, and AWS Chatbot.
+2. An IAM role with permissions to create and manage the following AWS resources: AWS S3 buckets, AWS Step Functions, AWS CodeBuild, AWS Secrets Manager, AWS Lambda functions, Amazon SNS, Amazon SES, and AWS Chatbot.
 
-This solution uses a source email that is created and verified in Amazon SES to send out approval emails. Refer to [Creating and verifying email identities](https://docs.aws.amazon.com/ses/latest/dg/creating-identities.html#verify-email-addresses-procedure) for setup instructions.
+3. This solution uses a source email that is created and verified in Amazon SES to send out approval emails. Refer to [Creating and verifying email identities](https://docs.aws.amazon.com/ses/latest/dg/creating-identities.html#verify-email-addresses-procedure) for setup instructions.
 
-A destination email address for receiving approval notifications. This can generally be a shared inbox or a particular team distribution list. 
+4. A destination email address for receiving approval notifications. This can generally be a shared inbox or a particular team distribution list. 
 
-An operational SonarQube instance accessible from your AWS account. For SonarQube installation instructions, refer to the official documentation [here](https://docs.sonarsource.com/sonarqube/latest/setup-and-upgrade/install-the-server/introduction/).
+5. An operational SonarQube instance accessible from your AWS account. For SonarQube installation instructions, refer to the official documentation [here](https://docs.sonarsource.com/sonarqube/latest/setup-and-upgrade/install-the-server/introduction/).
 
-A SonarQube [user token](https://docs.sonarsource.com/sonarqube/latest/user-guide/user-account/generating-and-using-tokens/) with permissions to trigger and create projects via the pipeline.
+6. A SonarQube [user token](https://docs.sonarsource.com/sonarqube/latest/user-guide/user-account/generating-and-using-tokens/) with permissions to trigger and create projects via the pipeline.
 
-A configured AWS Chatbot client, with the workspace ID readily available for input in the CloudFormation console. Refer [configure a slack client](https://docs.aws.amazon.com/chatbot/latest/adminguide/slack-setup.html#slack-client-setup) for instructions.
+7. A configured AWS Chatbot client, with the workspace ID readily available for input in the CloudFormation console. Refer [configure a slack client](https://docs.aws.amazon.com/chatbot/latest/adminguide/slack-setup.html#slack-client-setup) for instructions.
 
 
 ## Security
