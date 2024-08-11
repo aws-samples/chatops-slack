@@ -36,35 +36,27 @@ Key features of the solution include:
 3. AWS CodeBuild Execution:
     - Aws CodeBuild job executes SonarQube scan on the uploaded codebase.
     - Scan artifacts are stored in a separate Amazon S3 bucket for auditing and analysis.
-
 4. Failure Analysis (AWS Lambda Function):
     - On AWS CodeBuild failure, the CheckBuildStatus AWS Lambda function is triggered.
     - On AWS CodeBuild success, the process is terminated and no further action is needed.
-
 5. Function analyzes failure cause (Quality Gate failure or other issues)  
     - CheckBuildStatus AWS Lambda creates a custom payload with detailed failure information.
     - CheckBuildStatus AWS Lambda publishes the custom payload to an Amazon SNS topic.
-
 6. Notification System:
     - Amazon SNS forwards the payload to AWS Chatbot for Slack integration.
-
 7. Slack Integration:
     - AWS Chatbot posts a notification in the designated Slack channel.
-
 8. Approval Process:
     - Approvers review the failure details in the Slack notification.
     - Approvers can initiate approval using the "Approve" button in Slack.
-
 9. Approval Handler:
     - An Approval AWS Lambda function processes the approval action from Slack.
     - Function generates a custom message for developer notification.
     - Approval AWS Lambda function publishes the custom message to Amazon SES.
-
 10. Developer Notification: 
     - Amazon SES sends an email to the developers with next steps or required actions.
 
 This workflow combines manual code upload with automated quality checks, provides immediate feedback through Slack,
-
 
 ## Pre-requisites
 1. AWS Chatbot to be added to slack the required slack workspace as a plugin. Refer [Add apps to slack workspace](https://slack.com/intl/en-in/help/articles/202035138-Add-apps-to-your-Slack-workspace) for further details. Keep a note of the slack Workspace ID shown on the AWS Console after successful registration.
@@ -81,6 +73,14 @@ This workflow combines manual code upload with automated quality checks, provide
 
 7. A configured AWS Chatbot client, with the workspace ID readily available for input in the CloudFormation console. Refer [configure a slack client](https://docs.aws.amazon.com/chatbot/latest/adminguide/slack-setup.html#slack-client-setup) for instructions.
 
+## AWS CloudFormation stack overview:
+1. The pre-requisite.yml is to be executed first and expects below parameters:
+
+| Column 1 Key | Column 2 Description |
+| --------------- | --------------- |
+| Stack Name | As per choice |
+| S3LambaBucket | As per choice, however it has to be globally unique |
+| SonarToken | This is the sonar user token that is mentioned in the pre-requisite section |
 
 ## Security
 
