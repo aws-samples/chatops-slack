@@ -108,6 +108,48 @@ Notification type 1: If the uploaded code has failed in the sonar quality gate.
 Notification type 2: If the code build has failed because of some other reason and it needs troubleshooting.
 ![Notification 2](./assets/OtherFailure.png)
 
+## Deployment Instructions
+
+1. Clone repository using below command:
+    git clone “git@github.com:aws-samples/chatops-slack.git“
+2. Creation of zip file containing AWS Lambda code.The AWS Lambda function code for the Checkbuildstatus and ApprovalEmail functionality is to be zipped into notification.zip and approval.zip respectively. Below commands can be used:
+    cd chatops-slack/src
+    chmod -R 775 *
+    zip -r approval.zip approval
+    zip -r notification.zip notification
+3. Execution of the first AWS CloudFormation stack file named pre-requisite.yml
+    - Execute the pre-requisite.yml AWS CloudFormation stack: AWSConsole→AWSCloudformation→CreateStack→With New resources→ Next
+    - Select the boxes “Choose an existing template” and “Upload a template file”. Click choose file and select pre-requisite.yml.
+    - The stack expects below parameters listed above in the code section.
+    - Select the role which is defined in the pre-requisites section for creating the resources, Click Next → Then click on Submit.
+In the resources and outputs section make a note of the S3Lambda, CKMSKeyArn, CKMSKeyId values that will be used in the following steps.
+4. Zip file upload to the S3Lambda bucket created above
+    - Upload the notification.zip and approval.zip created as a part of the initial steps into the S3Lambda bucket. This will be used by the following AWS CloudFormation stack to provision the lambda function.
+5. Execution of the second AWS CloudFormation stack file named app-security.yml
+    - Execute the app-security.yml AWS CloudFormation stack: AWSConsole→Cloudformation→CreateStack→With New resources→ Next
+    - Select the boxes “Choose an existing template” and “Upload a template file”. Click choose file and select app-security.yml.
+    - The stack expects below parameters listed above in the architecture section.
+    - Select the role which is defined in the pre-requisites section for creating the resources, Click Next → Then click on Submit.
+6. Testing of the notification setup
+    - Go to AWSConsole→ Amazon SNS → Go to Topics→ Select the topic that ends with LambdaToAWSSlackChatbot → Send Test message.
+    - On successful test message delivery you should see a notification on the slack channel.
+7. Approval flow setup
+    - Choose the vertical ellipsis button on the bottom of the above notification in your chat channel.
+    - In Manage actions, choose Create.
+    - Enter a custom action name E.g: APPROVE. This name is a unique identifier for your custom action.
+    - Enter a name for your custom action button E.g APPROVE. This name is shown on a button on your notification. This name should be 20 characters or less and can incorporate emojis.
+    - For Custom action type, select Lambda action.
+    - Choose Next.
+    - Select the AWS account and region where this is deployed.
+    - Choose Load Lambdas.
+    - In Define Lambda Function, select a Lambda function that ends with ApprovalEmailLambda. Then click Next
+    - Then on the Display criteria screen click Save
+    - On clicking Save you should see an APPROVE button created
+8. Approval flow validation
+    - Click on the APPROVE button on slack. 
+    - The slackbot should send a notification on the message thread with a confirmation string "Approval Email sent successfully“
+
+
 ## Security
 
 See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
