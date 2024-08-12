@@ -20,7 +20,7 @@ Key features of the solution include:
 5. Infrastructure as Code (IaC): The entire solution is wrapped with AWS CloudFormation templates, enabling faster and more reliable infrastructure provisioning while reducing manual setup errors.
 
 ## Architecture
-![Architecture Diagram](./Architecture.png)
+![Architecture Diagram](./assets/Architecture.png)
 
 ## Automated Code Quality Assurance Workflow
 
@@ -96,6 +96,17 @@ This workflow combines manual code upload with automated quality checks, provide
 | SlackWorkspaceId | Enter the slack workspace ID created in the pre-requisite section.  You can get it from the AWS console→ AWS Chatbot→ Configured Clients→ Slack→ WorkspaceID |
 | SonarFileDirectory | Enter the directory which contains your sonar.project.<env>.properties file. |
 | SonarFileName | Enter the name of the sonar.project.<env>properties file |
+
+## Step function overview
+If the quality gate on sonar fails, the flow goes to the CheckBuildStatus function which triggers a notification on the slack channel. Below is an example of the step function status post the quality gate fails:
+![Step Function](./assets/Stepfunction.png)
+
+## Notification types
+Notification type 1: If the uploaded code has failed in the sonar quality gate.
+![Notification 1](./assets/ScanFailure.png)
+
+Notification type 2: If the code build has failed because of some other reason and it needs troubleshooting.
+![Notification 2](./assets/OtherFailure.png)
 
 ## Security
 
