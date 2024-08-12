@@ -4,7 +4,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "Application scanning"
 Parameters:
-  # Make the parametes neutral
   EnvironmentType:
     Type: String
     Default: apac-apg-test-demo
@@ -16,14 +15,6 @@ Parameters:
       - apac-apg-test-preprod
       - apac-apg-test-prod 
     Description: Select the client environment for deployment of the application scan pipeline.
-  
-  # SubnetIds:
-  #   Type: List<AWS::EC2::Subnet::Id>
-  #   Description: The IDs of the existing subnets within the VPC
-  
-  # LambdaSecurityGroup:
-  #   Type: AWS::EC2::SecurityGroup::Id
-  #   Description: The ID of the existing security group for the Lambda function
 
   SonarFileName:
     Type: String
@@ -518,10 +509,6 @@ Resources:
                 SNS_TOPIC_ARN: !Ref SNSTopic
             KmsKeyArn: !Sub ${CKMSKeyArn}
             Runtime: "python3.12"
-            # VpcConfig:
-            #   SecurityGroupIds: 
-            #     - !Ref LambdaSecurityGroup
-            #   SubnetIds: !Ref SubnetIds
 
 # Code to create approval lambda function to send email to the shared inboxes
   ApprovalLambdaFunction:
@@ -544,10 +531,6 @@ Resources:
                 SES_EMAIL: !Sub ${SESEmail}
             KmsKeyArn: !Sub ${CKMSKeyArn}
             Runtime: "python3.12"
-            # VpcConfig:
-            #   SecurityGroupIds: 
-            #     - !Ref LambdaSecurityGroup
-            #   SubnetIds: !Ref SubnetIds
 
 # Code to create SNS topic for AWS Chatbot
   SNSTopic:

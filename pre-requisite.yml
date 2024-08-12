@@ -17,9 +17,6 @@ Parameters:
     Default: "chatops-lambda-bucket-t"
     AllowedPattern : ".+"
 
-  # CmkId:
-  #   Type: AWS::SSM::Parameter::Value<String>
-
 Resources:
   CmkId:
     Type: AWS::KMS::Key
