@@ -10,7 +10,7 @@ In today's fast-paced software development environment, managing Static Applicat
 
 These issues often lead to increased security risks, delayed releases, and reduced team productivity. There is a pressing need for a solution that can streamline SAST result management, enhance team collaboration, and automate infrastructure provisioning to address these challenges effectively.
 
-To address these critical challenges, we present a comprehensive solution that leverages the power of AWS Chatbot to streamline the management of Static Application Security Testing (SAST) scan failures reported via SonarQube. This innovative approach integrates custom actions and notifications into a conversational interface, enabling efficient collaboration and decision-making processes within development teams.
+To address these critical challenges, we present a comprehensive solution that leverages the power of Amazon Q Developer in chat applications to streamline the management of Static Application Security Testing (SAST) scan failures reported via SonarQube. This innovative approach integrates custom actions and notifications into a conversational interface, enabling efficient collaboration and decision-making processes within development teams.
 
 Key features of the solution include:
 1. Customized Notifications: Real-time alerts and notifications are delivered directly to team chat channels, ensuring prompt awareness and action on SAST scan vulnerabilities or failures.
@@ -43,9 +43,9 @@ Key features of the solution include:
     - CheckBuildStatus AWS Lambda creates a custom payload with detailed failure information.
     - CheckBuildStatus AWS Lambda publishes the custom payload to an Amazon SNS topic.
 6. Notification System:
-    - Amazon SNS forwards the payload to AWS Chatbot for Slack integration.
+    - Amazon SNS forwards the payload to Amazon Q Developer in chat applications for Slack integration.
 7. Slack Integration:
-    - AWS Chatbot posts a notification in the designated Slack channel.
+    - Amazon Q Developer in chat applications posts a notification in the designated Slack channel.
 8. Approval Process:
     - Approvers review the failure details in the Slack notification.
     - Approvers can initiate approval using the "Approve" button in Slack.
@@ -59,9 +59,9 @@ Key features of the solution include:
 This workflow combines manual code upload with automated quality checks, provides immediate feedback through Slack,
 
 ## Pre-requisites
-1. AWS Chatbot to be added to slack the required slack workspace as a plugin. Refer [Add apps to slack workspace](https://slack.com/intl/en-in/help/articles/202035138-Add-apps-to-your-Slack-workspace) for further details. Keep a note of the slack Workspace ID shown on the AWS Console after successful registration.
+1. Amazon Q Developer in chat applications to be added to slack the required slack workspace as a plugin. Refer [Add apps to slack workspace](https://slack.com/intl/en-in/help/articles/202035138-Add-apps-to-your-Slack-workspace) for further details. Keep a note of the slack Workspace ID shown on the AWS Console after successful registration.
 
-2. An IAM role with permissions to create and manage the following AWS resources: AWS S3 buckets, AWS Step Functions, AWS CodeBuild, AWS Secrets Manager, AWS Lambda functions, Amazon SNS, Amazon SES, and AWS Chatbot.
+2. An IAM role with permissions to create and manage the following AWS resources: AWS S3 buckets, AWS Step Functions, AWS CodeBuild, AWS Secrets Manager, AWS Lambda functions, Amazon SNS, Amazon SES, and Amazon Q Developer in chat applications.
 
 3. This solution uses a source email that is created and verified in Amazon SES to send out approval emails. Refer to [Creating and verifying email identities](https://docs.aws.amazon.com/ses/latest/dg/creating-identities.html#verify-email-addresses-procedure) for setup instructions.
 
@@ -71,7 +71,7 @@ This workflow combines manual code upload with automated quality checks, provide
 
 6. A SonarQube [user token](https://docs.sonarsource.com/sonarqube/latest/user-guide/user-account/generating-and-using-tokens/) with permissions to trigger and create projects via the pipeline.
 
-7. A configured AWS Chatbot client, with the workspace ID readily available for input in the CloudFormation console. Refer [configure a slack client](https://docs.aws.amazon.com/chatbot/latest/adminguide/slack-setup.html#slack-client-setup) for instructions.
+7. A configured Amazon Q Developer in chat applications client, with the workspace ID readily available for input in the CloudFormation console. Refer [configure a slack client](https://docs.aws.amazon.com/chatbot/latest/adminguide/slack-setup.html#slack-client-setup) for instructions.
 
 ## AWS CloudFormation stack overview:
 1. The pre-requisite.yml is to be executed first and expects below parameters:
@@ -93,7 +93,7 @@ This workflow combines manual code upload with automated quality checks, provide
 | SESEmail | Name of the registered email identity in Amazon SES(performed as a part of the pre-requisite). This will be the source email address. |
 | SharedInboxMail | Destination email address where the scan notifications are to be sent |
 | SlackChannelId | Channel ID of slack channel. Right Click on channel name→ Channel Details on the slack APP find the channel ID at the bottom |
-| SlackWorkspaceId | Enter the slack workspace ID created in the pre-requisite section.  You can get it from the AWS console→ AWS Chatbot→ Configured Clients→ Slack→ WorkspaceID |
+| SlackWorkspaceId | Enter the slack workspace ID created in the pre-requisite section.  You can get it from the AWS console→ Amazon Q Developer in chat applications→ Configured Clients→ Slack→ WorkspaceID |
 | SonarFileDirectory | Enter the directory which contains your sonar.project.<env>.properties file. |
 | SonarFileName | Enter the name of the sonar.project.<env>properties file |
 
@@ -160,5 +160,5 @@ This library is licensed under the MIT-0 License. See the LICENSE file.
 
 
 ## Limitations
-Custom actions for AWS Chatbot are currently not supported through AWS CloudFormation. The creation of custom action buttons is a manual process in this version of the solution. Automation of custom action deployment via AWS CloudFormation is planned for future releases, enhancing the overall Infrastructure as Code capabilities of this solution.
+The creation of custom action buttons is a manual process in this version of the solution. Automation of custom action deployment via AWS CloudFormation is planned for future releases, enhancing the overall Infrastructure as Code capabilities of this solution.
 
